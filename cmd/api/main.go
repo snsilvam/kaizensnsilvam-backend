@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/config"
-	"github.com/snsilvam/kaizensnsilvam-backend/internal/http/router"
+	router "github.com/snsilvam/kaizensnsilvam-backend/internal/http"
 )
 
 func main() {
