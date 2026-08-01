@@ -3,14 +3,16 @@ package config
 import "os"
 
 type Config struct {
-	Port string
-	Env  string
+	Port      string
+	Env       string
+	ProjectID string
 }
 
 func Load() *Config {
 	return &Config{
-		Port: getEnv("PORT", "8080"),
-		Env:  getEnv("ENV", "local"),
+		Port:      getEnv("PORT", "8080"),
+		Env:       getEnv("ENV", "local"),
+		ProjectID: getEnv("GOOGLE_CLOUD_PROJECT", ""),
 	}
 }
 
