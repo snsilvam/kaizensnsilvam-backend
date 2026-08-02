@@ -45,7 +45,7 @@ func main() {
 	incomeSvc := income.NewService(incomeRepo)
 	incomeHandler := handlers.NewIncomeHandler(incomeSvc)
 
-	r := router.New(familyHandler, userHandler, incomeHandler)
+	r := router.New(familyHandler, userHandler, incomeHandler, cfg.AllowedOrigins)
 
 	log.Println("API listening on :" + cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {

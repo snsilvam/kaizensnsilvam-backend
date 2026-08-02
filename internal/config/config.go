@@ -1,19 +1,39 @@
 package config
 
-import "os"
+import (
+	"os"
+	"strings"
+)
+
+// defaultAllowedOrigins son los orígenes de desarrollo del frontend.
+// En Cloud Run se sobreescriben con CORS_ALLOWED_ORIGINS.
+const defaultAllowedOrigins = "http://localhost:5173,http://localhost:3000"
 
 type Config struct {
-	Port      string
-	Env       string
-	ProjectID string
+	Port           string
+	Env            string
+	ProjectID      string
+	AllowedOrigins []string
 }
 
 func Load() *Config {
 	return &Config{
-		Port:      getEnv("PORT", "8080"),
-		Env:       getEnv("ENV", "local"),
-		ProjectID: getEnv("GOOGLE_CLOUD_PROJECT", ""),
+		Port:           getEnv("PORT", "8080"),
+		Env:            getEnv("ENV", "local"),
+		ProjectID:      getEnv("GOOGLE_CLOUD_PROJECT", ""),
+		AllowedOrigins: splitCSV(getEnv("CORS_ALLOWED_ORIGINS", defaultAllowedOrigins)),
 	}
+}
+
+// splitCSV parte una lista separada por comas y descarta elementos vacíos.
+func splitCSV(value string) []string {
+	var out []string
+	for _, p := range strings.Split(value, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func getEnv(key, defaultValue string) string {
