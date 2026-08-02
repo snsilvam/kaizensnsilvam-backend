@@ -9,6 +9,7 @@ import (
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/family"
 	router "github.com/snsilvam/kaizensnsilvam-backend/internal/http"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/http/handlers"
+	"github.com/snsilvam/kaizensnsilvam-backend/internal/income"
 	fs "github.com/snsilvam/kaizensnsilvam-backend/internal/infrastructure/firestore"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/user"
 )
@@ -40,7 +41,11 @@ func main() {
 	userSvc := user.NewService(userRepo)
 	userHandler := handlers.NewUserHandler(userSvc)
 
-	r := router.New(familyHandler, userHandler)
+	incomeRepo := fs.NewIncomeRepository(fsClient)
+	incomeSvc := income.NewService(incomeRepo)
+	incomeHandler := handlers.NewIncomeHandler(incomeSvc)
+
+	r := router.New(familyHandler, userHandler, incomeHandler)
 
 	log.Println("API listening on :" + cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {

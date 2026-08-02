@@ -1,0 +1,240 @@
+openapi: 3.0.3
+
+info:
+  title: Kaizen Backend API
+  description: API REST del backend de finanzas personales Kaizen.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local
+
+tags:
+  - name: health
+  - name: families
+  - name: users
+  - name: incomes
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Servicio disponible
+
+  /families:
+    post:
+      tags: [families]
+      summary: Crea una familia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFamilyRequest"
+      responses:
+        "201":
+          description: Familia creada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Family"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /families/{id}:
+    get:
+      tags: [families]
+      summary: Obtiene una familia por ID
+      parameters:
+        - $ref: "#/components/parameters/IDParam"
+      responses:
+        "200":
+          description: Familia encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Family"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /users:
+    post:
+      tags: [users]
+      summary: Crea un usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /users/{id}:
+    get:
+      tags: [users]
+      summary: Obtiene un usuario por ID
+      parameters:
+        - $ref: "#/components/parameters/IDParam"
+      responses:
+        "200":
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /incomes:
+    post:
+      tags: [incomes]
+      summary: Registra un ingreso
+      description: Caso de uso RegisterIncome. Persiste un nuevo ingreso.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterIncomeRequest"
+      responses:
+        "201":
+          description: Ingreso registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Income"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  parameters:
+    IDParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Petición inválida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InternalError:
+      description: Error interno
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: income amount must be greater than zero
+
+    CreateFamilyRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Familia Silva
+
+    Family:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    CreateUserRequest:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          example: Sergio
+        email:
+          type: string
+          format: email
+          example: s.silva@seeed.us
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    RegisterIncomeRequest:
+      type: object
+      required: [name, amount, date]
+      properties:
+        name:
+          type: string
+          example: Salario
+        amount:
+          type: integer
+          format: int64
+          description: Monto del ingreso. Debe ser mayor que cero.
+          example: 250000
+        date:
+          type: string
+          format: date-time
+          description: Fecha del ingreso en formato RFC3339.
+          example: "2026-08-01T00:00:00Z"
+
+    Income:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 8f2c1a3b4d5e
+        name:
+          type: string
+          example: Salario
+        amount:
+          type: integer
+          format: int64
+          example: 250000
+        date:
+          type: string
+          format: date-time
+          example: "2026-08-01T00:00:00Z"
