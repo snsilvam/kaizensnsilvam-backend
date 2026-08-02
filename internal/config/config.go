@@ -28,7 +28,7 @@ func Load() *Config {
 // splitCSV parte una lista separada por comas y descarta elementos vacíos.
 func splitCSV(value string) []string {
 	var out []string
-	for _, p := range strings.Split(value, ",") {
+	for p := range strings.SplitSeq(value, ",") {
 		if p = strings.TrimSpace(p); p != "" {
 			out = append(out, p)
 		}
@@ -36,8 +36,11 @@ func splitCSV(value string) []string {
 	return out
 }
 
+// getEnv trata una variable vacía como ausente: el pipeline expande
+// `${{ vars.X }}` a "" cuando la variable no está definida en GitHub, y ahí
+// queremos el default y no un valor vacío.
 func getEnv(key, defaultValue string) string {
-	if v, ok := os.LookupEnv(key); ok {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
 	}
 	return defaultValue

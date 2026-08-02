@@ -11,7 +11,9 @@ env:
   SERVICE: kaizensnsilvam-backend
   IMAGE: kaizensnsilvam-backend
   # Orígenes del frontend autorizados a llamar la API (CORS).
-  CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
+  # Se configura en GitHub → Settings → Secrets and variables → Actions → Variables.
+  # Si la variable no existe llega vacía y el backend cae a sus orígenes por defecto.
+  CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
 
 jobs:
   deploy:
