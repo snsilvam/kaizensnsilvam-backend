@@ -8,16 +8,23 @@ import (
 
 	openapi "github.com/snsilvam/kaizensnsilvam-backend/docs"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/http/handlers"
+	"github.com/snsilvam/kaizensnsilvam-backend/internal/http/middleware"
 )
 
 //go:embed swagger/index.html
 var swaggerUI []byte
 
-func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler) *gin.Engine {
+func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler, allowedOrigins []string) *gin.Engine {
 	r := gin.New()
 
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
+	r.Use(middleware.CORS(allowedOrigins))
+
+	// Sin esto Gin responde 404 al preflight de rutas con método no registrado
+	// y el navegador nunca ve los headers de CORS.
+	r.HandleMethodNotAllowed = true
+	r.NoRoute(func(c *gin.Context) { c.Status(http.StatusNotFound) })
 
 	r.GET("/health", handlers.Health)
 	swagger := func(c *gin.Context) {
