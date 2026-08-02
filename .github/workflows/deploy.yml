@@ -51,4 +51,5 @@ jobs:
             --region us-central1 \
             --platform managed \
             --allow-unauthenticated \
-            --port 8080
+            --port 8080 \
+            --set-env-vars GOOGLE_CLOUD_PROJECT=$PROJECT_ID
