@@ -14,6 +14,7 @@ tags:
   - name: families
   - name: users
   - name: incomes
+  - name: dashboard
 
 paths:
   /health:
@@ -124,6 +125,25 @@ paths:
                 $ref: "#/components/schemas/Income"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /dashboard:
+    get:
+      tags: [dashboard]
+      summary: Obtiene el dashboard financiero
+      description: >
+        Caso de uso GetDashboard. Vista agregada de solo lectura: no tiene
+        colección propia, orquesta los repositorios de Income y PendingPayment.
+        Responde cuánto se puede gastar hoy, cuándo llega el próximo ingreso
+        y si el plan va bien o mal.
+      responses:
+        "200":
+          description: Dashboard calculado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -238,3 +258,72 @@ components:
           type: string
           format: date-time
           example: "2026-08-01T00:00:00Z"
+
+    NextIncome:
+      type: object
+      description: Ingreso futuro más próximo.
+      properties:
+        name:
+          type: string
+          example: Salario
+        amount:
+          type: integer
+          format: int64
+          example: 250000
+        date:
+          type: string
+          format: date-time
+          example: "2026-08-15T00:00:00Z"
+        daysRemaining:
+          type: integer
+          description: Días completos que faltan para el ingreso.
+          example: 6
+
+    PendingPayment:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 7a1b2c3d4e5f
+        name:
+          type: string
+          example: Arriendo
+        amount:
+          type: integer
+          format: int64
+          example: 100000
+        dueDate:
+          type: string
+          format: date-time
+          example: "2026-08-20T00:00:00Z"
+
+    Dashboard:
+      type: object
+      properties:
+        availableToday:
+          type: integer
+          format: int64
+          description: >
+            Ingresos ya recibidos (fecha de hoy o anterior) menos el total
+            de pagos pendientes sin pagar.
+          example: 180000
+        nextIncome:
+          description: Próximo ingreso futuro, o null si no hay ninguno.
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/NextIncome"
+        planStatus:
+          type: string
+          description: >
+            Derivado de availableToday. V1: on_track si es mayor que cero,
+            at_risk en cualquier otro caso.
+          enum: [on_track, at_risk]
+          example: on_track
+        pendingPayments:
+          type: array
+          description: Pagos con paid == false, ordenados por vencimiento.
+          items:
+            $ref: "#/components/schemas/PendingPayment"
+        pendingPaymentsCount:
+          type: integer
+          example: 2

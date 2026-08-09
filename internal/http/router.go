@@ -14,7 +14,7 @@ import (
 //go:embed swagger/index.html
 var swaggerUI []byte
 
-func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler, allowedOrigins []string) *gin.Engine {
+func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler, dashboardHandler *handlers.DashboardHandler, allowedOrigins []string) *gin.Engine {
 	r := gin.New()
 
 	r.Use(gin.Logger())
@@ -55,6 +55,8 @@ func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandle
 	{
 		incomes.POST("", incomeHandler.Register)
 	}
+
+	r.GET("/dashboard", dashboardHandler.Get)
 
 	return r
 }
