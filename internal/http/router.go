@@ -14,7 +14,7 @@ import (
 //go:embed swagger/index.html
 var swaggerUI []byte
 
-func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler, allowedOrigins []string) *gin.Engine {
+func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler, pendingPaymentHandler *handlers.PendingPaymentHandler, allowedOrigins []string) *gin.Engine {
 	r := gin.New()
 
 	r.Use(gin.Logger())
@@ -54,6 +54,13 @@ func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandle
 	incomes := r.Group("/incomes")
 	{
 		incomes.POST("", incomeHandler.Register)
+	}
+
+	pendingPayments := r.Group("/pending-payments")
+	{
+		pendingPayments.GET("", pendingPaymentHandler.GetAll)
+		pendingPayments.POST("", pendingPaymentHandler.Register)
+		pendingPayments.PATCH("/:id/mark-as-paid", pendingPaymentHandler.MarkAsPaid)
 	}
 
 	return r
