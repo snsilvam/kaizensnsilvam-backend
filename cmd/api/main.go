@@ -10,6 +10,7 @@ import (
 	router "github.com/snsilvam/kaizensnsilvam-backend/internal/http"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/http/handlers"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/income"
+	"github.com/snsilvam/kaizensnsilvam-backend/internal/pending_payment"
 	fs "github.com/snsilvam/kaizensnsilvam-backend/internal/infrastructure/firestore"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/user"
 )
@@ -45,7 +46,11 @@ func main() {
 	incomeSvc := income.NewService(incomeRepo)
 	incomeHandler := handlers.NewIncomeHandler(incomeSvc)
 
-	r := router.New(familyHandler, userHandler, incomeHandler, cfg.AllowedOrigins)
+	pendingPaymentRepo := fs.NewPendingPaymentRepository(fsClient)
+	pendingPaymentSvc := pending_payment.NewService(pendingPaymentRepo)
+	pendingPaymentHandler := handlers.NewPendingPaymentHandler(pendingPaymentSvc)
+
+	r := router.New(familyHandler, userHandler, incomeHandler, pendingPaymentHandler, cfg.AllowedOrigins)
 
 	log.Println("API listening on :" + cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {

@@ -14,6 +14,7 @@ tags:
   - name: families
   - name: users
   - name: incomes
+  - name: pending-payments
 
 paths:
   /health:
@@ -124,6 +125,48 @@ paths:
                 $ref: "#/components/schemas/Income"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /pending-payments:
+    post:
+      tags: [pending-payments]
+      summary: Registra un pago pendiente
+      description: Caso de uso RegisterPendingPayment. Persiste un nuevo pago pendiente con paid = false.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterPendingPaymentRequest"
+      responses:
+        "201":
+          description: Pago pendiente registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingPayment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /pending-payments/{id}/mark-as-paid:
+    patch:
+      tags: [pending-payments]
+      summary: Marca un pago pendiente como pagado
+      description: Caso de uso MarkPendingPaymentAsPaid. Cambia paid a true sin eliminar el registro.
+      parameters:
+        - $ref: "#/components/parameters/IDParam"
+      responses:
+        "200":
+          description: Pago pendiente marcado como pagado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingPayment"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -238,3 +281,42 @@ components:
           type: string
           format: date-time
           example: "2026-08-01T00:00:00Z"
+
+    RegisterPendingPaymentRequest:
+      type: object
+      required: [name, amount, dueDate]
+      properties:
+        name:
+          type: string
+          example: Internet
+        amount:
+          type: integer
+          format: int64
+          description: Monto del pago pendiente. Debe ser mayor que cero.
+          example: 90000
+        dueDate:
+          type: string
+          format: date-time
+          description: Fecha de vencimiento en formato RFC3339.
+          example: "2026-08-15T00:00:00Z"
+
+    PendingPayment:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 8f2c1a3b4d5e
+        name:
+          type: string
+          example: Internet
+        amount:
+          type: integer
+          format: int64
+          example: 90000
+        dueDate:
+          type: string
+          format: date-time
+          example: "2026-08-15T00:00:00Z"
+        paid:
+          type: boolean
+          example: false
