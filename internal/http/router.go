@@ -14,7 +14,10 @@ import (
 //go:embed swagger/index.html
 var swaggerUI []byte
 
-func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler, pendingPaymentHandler *handlers.PendingPaymentHandler, dashboardHandler *handlers.DashboardHandler, allowedOrigins []string) *gin.Engine {
+// New arma el router. auth es el middleware de autenticación que protege las
+// rutas de negocio; /health, / y la documentación quedan públicas para que el
+// health check de Cloud Run y Swagger sigan funcionando sin token.
+func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler, pendingPaymentHandler *handlers.PendingPaymentHandler, dashboardHandler *handlers.DashboardHandler, auth gin.HandlerFunc, allowedOrigins []string) *gin.Engine {
 	r := gin.New()
 
 	r.Use(gin.Logger())
@@ -39,31 +42,35 @@ func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandle
 		c.Data(http.StatusOK, "application/yaml; charset=utf-8", openapi.SwaggerYAML)
 	})
 
-	families := r.Group("/families")
+	// A partir de acá todo exige `Authorization: Bearer <ID_TOKEN>`.
+	// El middleware va después de CORS para que un 401 también lleve los
+	// headers de Access-Control y el navegador pueda leer la respuesta.
+	families := r.Group("/families", auth)
 	{
 		families.POST("", familyHandler.Create)
 		families.GET("/:id", familyHandler.GetByID)
 	}
 
-	users := r.Group("/users")
+	users := r.Group("/users", auth)
 	{
 		users.POST("", userHandler.Create)
 		users.GET("/:id", userHandler.GetByID)
 	}
 
-	incomes := r.Group("/incomes")
+	incomes := r.Group("/incomes", auth)
 	{
+		incomes.GET("", incomeHandler.List)
 		incomes.POST("", incomeHandler.Register)
 	}
 
-	pendingPayments := r.Group("/pending-payments")
+	pendingPayments := r.Group("/pending-payments", auth)
 	{
 		pendingPayments.GET("", pendingPaymentHandler.GetAll)
 		pendingPayments.POST("", pendingPaymentHandler.Register)
 		pendingPayments.PATCH("/:id/mark-as-paid", pendingPaymentHandler.MarkAsPaid)
 	}
 
-	r.GET("/dashboard", dashboardHandler.Get)
+	r.GET("/dashboard", auth, dashboardHandler.Get)
 
 	return r
 }

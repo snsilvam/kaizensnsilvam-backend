@@ -9,6 +9,11 @@ servers:
   - url: http://localhost:8080
     description: Local
 
+# Todas las rutas exigen un ID token de Firebase salvo las que declaran
+# `security: []` (health y la propia documentación).
+security:
+  - bearerAuth: []
+
 tags:
   - name: health
   - name: families
@@ -22,6 +27,7 @@ paths:
     get:
       tags: [health]
       summary: Health check
+      security: []
       responses:
         "200":
           description: Servicio disponible
@@ -45,6 +51,8 @@ paths:
                 $ref: "#/components/schemas/Family"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -61,6 +69,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Family"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -85,6 +95,8 @@ paths:
                 $ref: "#/components/schemas/User"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -101,12 +113,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
 
   /incomes:
+    get:
+      tags: [incomes]
+      summary: Lista los ingresos del usuario autenticado
+      description: >
+        Devuelve únicamente los ingresos cuyo dueño es el UID del ID token.
+        El dueño sale del token verificado: no hay parámetro para consultar los
+        ingresos de otro usuario. Los ingresos anteriores a la introducción de
+        userId no tienen dueño y no los devuelve nadie.
+      responses:
+        "200":
+          description: Ingresos del usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  incomes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Income"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
     post:
       tags: [incomes]
       summary: Registra un ingreso
@@ -126,10 +165,38 @@ paths:
                 $ref: "#/components/schemas/Income"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
 
   /pending-payments:
+    get:
+      tags: [pending-payments]
+      summary: Lista los pagos pendientes del usuario autenticado
+      description: >
+        Devuelve los pagos con paid == false cuyo dueño es el UID del ID token.
+        El dueño sale del token verificado: no hay parámetro para consultar los
+        pagos de otro usuario. Los pagos anteriores a la introducción de userId
+        no tienen dueño y no los devuelve nadie.
+      responses:
+        "200":
+          description: Pagos pendientes del usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending_payments:
+                    type: array
+                    nullable: true
+                    items:
+                      $ref: "#/components/schemas/PendingPayment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
     post:
       tags: [pending-payments]
       summary: Registra un pago pendiente
@@ -149,6 +216,8 @@ paths:
                 $ref: "#/components/schemas/PendingPayment"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -156,7 +225,11 @@ paths:
     patch:
       tags: [pending-payments]
       summary: Marca un pago pendiente como pagado
-      description: Caso de uso MarkPendingPaymentAsPaid. Cambia paid a true sin eliminar el registro.
+      description: >
+        Caso de uso MarkPendingPaymentAsPaid. Cambia paid a true sin eliminar el
+        registro. Sólo opera sobre pagos del usuario autenticado: si el id es de
+        otro usuario, o de un registro sin dueño, responde 404 igual que si no
+        existiera, para no revelar qué ids son válidos.
       parameters:
         - $ref: "#/components/parameters/IDParam"
       responses:
@@ -166,6 +239,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PendingPayment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -187,10 +262,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Dashboard"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        ID token de Firebase Authentication emitido al usuario en el frontend
+        (`getIdToken()`). Se envía como `Authorization: Bearer <ID_TOKEN>` y el
+        backend lo verifica con el Firebase Admin SDK.
+
   parameters:
     IDParam:
       name: id
@@ -202,6 +289,12 @@ components:
   responses:
     BadRequest:
       description: Petición inválida
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Falta el ID token de Firebase o no es válido
       content:
         application/json:
           schema:

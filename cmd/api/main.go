@@ -10,7 +10,9 @@ import (
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/family"
 	router "github.com/snsilvam/kaizensnsilvam-backend/internal/http"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/http/handlers"
+	"github.com/snsilvam/kaizensnsilvam-backend/internal/http/middleware"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/income"
+	fb "github.com/snsilvam/kaizensnsilvam-backend/internal/infrastructure/firebase"
 	fs "github.com/snsilvam/kaizensnsilvam-backend/internal/infrastructure/firestore"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/pending_payment"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/user"
@@ -34,6 +36,14 @@ func main() {
 	}
 	defer fsClient.Close()
 
+	// Infraestructura: cliente de Firebase Auth para verificar los ID tokens
+	// que emite el frontend.
+	authClient, err := fb.NewAuthClient(ctx, cfg.ProjectID)
+	if err != nil {
+		log.Fatalf("firebase auth: %v", err)
+	}
+	authMiddleware := middleware.Auth(authClient)
+
 	// Composition root: cableado de cada feature.
 	familyRepo := fs.NewFamilyRepository(fsClient)
 	familySvc := family.NewService(familyRepo)
@@ -56,7 +66,7 @@ func main() {
 	dashboardSvc := dashboard.NewService(incomeRepo, pendingPaymentRepo)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardSvc)
 
-	r := router.New(familyHandler, userHandler, incomeHandler, pendingPaymentHandler, dashboardHandler, cfg.AllowedOrigins)
+	r := router.New(familyHandler, userHandler, incomeHandler, pendingPaymentHandler, dashboardHandler, authMiddleware, cfg.AllowedOrigins)
 
 	log.Println("API listening on :" + cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {

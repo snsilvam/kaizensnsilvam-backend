@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/snsilvam/kaizensnsilvam-backend/internal/auth"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/income"
 )
 
@@ -22,6 +23,9 @@ func NewIncomeHandler(svc *income.Service) *IncomeHandler {
 
 // registerIncomeRequest es el body de POST /incomes.
 // Date se recibe en formato RFC3339 (p.ej. 2026-08-01T00:00:00Z).
+//
+// A propósito no tiene userId: el dueño sale del token verificado. Si el
+// cliente manda uno en el body, ShouldBindJSON lo descarta.
 type registerIncomeRequest struct {
 	Name   string    `json:"name" binding:"required"`
 	Amount int64     `json:"amount" binding:"required"`
@@ -47,13 +51,22 @@ func newIncomeResponse(i *income.Income) incomeResponse {
 
 // Register maneja POST /incomes
 func (h *IncomeHandler) Register(c *gin.Context) {
+	// El dueño sale del token que ya verificó el middleware. En una ruta
+	// protegida esto siempre está; el 401 cubre que alguien monte la ruta
+	// sin el middleware.
+	userID, ok := auth.UID(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthenticated"})
+		return
+	}
+
 	var req registerIncomeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	i, err := h.svc.RegisterIncome(c.Request.Context(), req.Name, req.Amount, req.Date)
+	i, err := h.svc.RegisterIncome(c.Request.Context(), userID, req.Name, req.Amount, req.Date)
 	if err != nil {
 		if errors.Is(err, income.ErrInvalidName) ||
 			errors.Is(err, income.ErrInvalidAmount) ||
@@ -66,4 +79,25 @@ func (h *IncomeHandler) Register(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, newIncomeResponse(i))
+}
+
+// List maneja GET /incomes y devuelve sólo los ingresos del usuario autenticado.
+func (h *IncomeHandler) List(c *gin.Context) {
+	userID, ok := auth.UID(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthenticated"})
+		return
+	}
+
+	incomes, err := h.svc.GetIncomes(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	responses := make([]incomeResponse, 0, len(incomes))
+	for _, i := range incomes {
+		responses = append(responses, newIncomeResponse(i))
+	}
+	c.JSON(http.StatusOK, gin.H{"incomes": responses})
 }

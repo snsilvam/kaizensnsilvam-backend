@@ -23,6 +23,8 @@ func NewPendingPaymentRepository(client *firestore.Client) *PendingPaymentReposi
 }
 
 // Create genera un nuevo documento y devuelve el PendingPayment con su ID asignado.
+// El dueño (UserID) se persiste como el campo `userId` del documento, por el
+// tag firestore de la entidad.
 func (r *PendingPaymentRepository) Create(ctx context.Context, pp *pending_payment.PendingPayment) (*pending_payment.PendingPayment, error) {
 	doc := r.client.Collection(pendingPaymentCollection).NewDoc()
 	pp.ID = doc.ID
@@ -51,20 +53,49 @@ func (r *PendingPaymentRepository) GetByID(ctx context.Context, id string) (*pen
 }
 
 // Update actualiza un PendingPayment existente.
+// Set reescribe el documento con lo que traiga la entidad, así que el userId
+// que se leyó en GetByID vuelve tal cual: un documento viejo sin dueño sigue
+// sin dueño, no se le asigna el usuario que hace la operación.
 func (r *PendingPaymentRepository) Update(ctx context.Context, pp *pending_payment.PendingPayment) error {
 	_, err := r.client.Collection(pendingPaymentCollection).Doc(pp.ID).Set(ctx, pp)
 	return err
 }
 
-// GetAllPending retorna todos los pagos pendientes donde paid == false.
+// ListPendingByUser retorna los pagos con paid == false cuyo dueño es userID.
+//
+// Los dos filtros van en la consulta a Firestore, no en Go: nunca se traen los
+// documentos de los demás usuarios. Una condición de igualdad no matchea los
+// documentos que no tienen el campo, así que los pagos anteriores a userId
+// quedan fuera sin necesidad de un filtro extra.
+//
+// Son dos igualdades sobre campos distintos, que Firestore resuelve con los
+// índices de campo único; no hace falta un índice compuesto.
+func (r *PendingPaymentRepository) ListPendingByUser(ctx context.Context, userID string) ([]*pending_payment.PendingPayment, error) {
+	query := r.client.Collection(pendingPaymentCollection).
+		Where("userId", "==", userID).
+		Where("paid", "==", false)
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	return toPendingPayments(docs)
+}
+
+// GetAllPending retorna todos los pagos pendientes donde paid == false, sin
+// filtrar por usuario. Sólo lo usa el dashboard, que todavía no está acotado
+// por usuario.
 func (r *PendingPaymentRepository) GetAllPending(ctx context.Context) ([]*pending_payment.PendingPayment, error) {
 	query := r.client.Collection(pendingPaymentCollection).Where("paid", "==", false)
 	docs, err := query.Documents(ctx).GetAll()
 	if err != nil {
 		return nil, err
 	}
+	return toPendingPayments(docs)
+}
 
-	var payments []*pending_payment.PendingPayment
+// toPendingPayments mapea documentos de Firestore a entidades de dominio.
+func toPendingPayments(docs []*firestore.DocumentSnapshot) ([]*pending_payment.PendingPayment, error) {
+	payments := make([]*pending_payment.PendingPayment, 0, len(docs))
 	for _, doc := range docs {
 		var pp pending_payment.PendingPayment
 		if err := doc.DataTo(&pp); err != nil {
