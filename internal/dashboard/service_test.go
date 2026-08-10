@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/income"
-	"github.com/snsilvam/kaizensnsilvam-backend/internal/pendingpayment"
+	"github.com/snsilvam/kaizensnsilvam-backend/internal/pending_payment"
 )
 
 // today es el "hoy" fijo que usan los tests.
@@ -43,13 +43,13 @@ func (r *fakeIncomeReader) NextFrom(_ context.Context, from time.Time) (*income.
 	return r.next, nil
 }
 
-// fakePaymentRepository es un doble de prueba en memoria para pendingpayment.Repository.
+// fakePaymentRepository es un doble de prueba en memoria para pending_payment.Reader.
 type fakePaymentRepository struct {
-	unpaid []*pendingpayment.PendingPayment
+	unpaid []*pending_payment.PendingPayment
 	err    error
 }
 
-func (r *fakePaymentRepository) ListUnpaid(_ context.Context) ([]*pendingpayment.PendingPayment, error) {
+func (r *fakePaymentRepository) GetAllPending(_ context.Context) ([]*pending_payment.PendingPayment, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
@@ -57,7 +57,7 @@ func (r *fakePaymentRepository) ListUnpaid(_ context.Context) ([]*pendingpayment
 }
 
 // newTestService construye el service con "hoy" fijo.
-func newTestService(incomes income.Reader, payments pendingpayment.Repository) *Service {
+func newTestService(incomes income.Reader, payments pending_payment.Reader) *Service {
 	svc := NewService(incomes, payments)
 	svc.now = func() time.Time { return today }
 	return svc
@@ -72,7 +72,7 @@ func TestGetDashboard_Success(t *testing.T) {
 		next: &income.Income{ID: "i3", Name: "Salario", Amount: 250000, Date: date(15)},
 	}
 	payments := &fakePaymentRepository{
-		unpaid: []*pendingpayment.PendingPayment{
+		unpaid: []*pending_payment.PendingPayment{
 			{ID: "p1", Name: "Arriendo", Amount: 100000, DueDate: date(20)},
 			{ID: "p2", Name: "Internet", Amount: 20000, DueDate: date(12)},
 		},
@@ -178,7 +178,7 @@ func TestGetDashboard_PlanStatus(t *testing.T) {
 			}
 			payments := &fakePaymentRepository{}
 			if tc.payments > 0 {
-				payments.unpaid = []*pendingpayment.PendingPayment{{Amount: tc.payments, DueDate: date(20)}}
+				payments.unpaid = []*pending_payment.PendingPayment{{Amount: tc.payments, DueDate: date(20)}}
 			}
 
 			got, err := newTestService(incomes, payments).GetDashboard(context.Background())

@@ -1,4 +1,4 @@
-package pendingpayment
+package pending_payment
 
 import (
 	"strings"
@@ -17,14 +17,14 @@ type PendingPayment struct {
 }
 
 // Validate aplica las reglas de negocio de la entidad.
-func (p *PendingPayment) Validate() error {
-	if strings.TrimSpace(p.Name) == "" {
+func (pp *PendingPayment) Validate() error {
+	if strings.TrimSpace(pp.Name) == "" {
 		return ErrInvalidName
 	}
-	if p.Amount <= 0 {
+	if pp.Amount <= 0 {
 		return ErrInvalidAmount
 	}
-	if p.DueDate.IsZero() {
+	if pp.DueDate.IsZero() {
 		return ErrInvalidDueDate
 	}
 	return nil

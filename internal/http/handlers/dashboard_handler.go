@@ -27,8 +27,8 @@ type nextIncomeResponse struct {
 	DaysRemaining int       `json:"daysRemaining"`
 }
 
-// pendingPaymentResponse es la representación REST de un pago pendiente.
-type pendingPaymentResponse struct {
+// dashboardPendingPaymentResponse es la representación REST de un pago pendiente.
+type dashboardPendingPaymentResponse struct {
 	ID      string    `json:"id"`
 	Name    string    `json:"name"`
 	Amount  int64     `json:"amount"`
@@ -37,17 +37,17 @@ type pendingPaymentResponse struct {
 
 // dashboardResponse es la representación REST del dashboard financiero.
 type dashboardResponse struct {
-	AvailableToday       int64                    `json:"availableToday"`
-	NextIncome           *nextIncomeResponse      `json:"nextIncome"`
-	PlanStatus           string                   `json:"planStatus"`
-	PendingPayments      []pendingPaymentResponse `json:"pendingPayments"`
-	PendingPaymentsCount int                      `json:"pendingPaymentsCount"`
+	AvailableToday       int64                             `json:"availableToday"`
+	NextIncome           *nextIncomeResponse               `json:"nextIncome"`
+	PlanStatus           string                            `json:"planStatus"`
+	PendingPayments      []dashboardPendingPaymentResponse `json:"pendingPayments"`
+	PendingPaymentsCount int                               `json:"pendingPaymentsCount"`
 }
 
 func newDashboardResponse(d *dashboard.Dashboard) dashboardResponse {
-	payments := make([]pendingPaymentResponse, 0, len(d.PendingPayments))
+	payments := make([]dashboardPendingPaymentResponse, 0, len(d.PendingPayments))
 	for _, p := range d.PendingPayments {
-		payments = append(payments, pendingPaymentResponse{
+		payments = append(payments, dashboardPendingPaymentResponse{
 			ID:      p.ID,
 			Name:    p.Name,
 			Amount:  p.Amount,

@@ -6,21 +6,21 @@ import (
 	"time"
 
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/income"
-	"github.com/snsilvam/kaizensnsilvam-backend/internal/pendingpayment"
+	"github.com/snsilvam/kaizensnsilvam-backend/internal/pending_payment"
 )
 
 // Service contiene la lógica de aplicación del Dashboard (capa usecase).
 // No tiene colección propia: orquesta los repositorios ya existentes.
 type Service struct {
 	incomes  income.Reader
-	payments pendingpayment.Repository
+	payments pending_payment.Reader
 
 	// now se inyecta para poder fijar "hoy" en los tests.
 	now func() time.Time
 }
 
 // NewService construye el service inyectando los repositorios que orquesta.
-func NewService(incomes income.Reader, payments pendingpayment.Repository) *Service {
+func NewService(incomes income.Reader, payments pending_payment.Reader) *Service {
 	return &Service{incomes: incomes, payments: payments, now: time.Now}
 }
 
@@ -40,7 +40,7 @@ func (s *Service) GetDashboard(ctx context.Context) (*Dashboard, error) {
 		return nil, err
 	}
 
-	unpaid, err := s.payments.ListUnpaid(ctx)
+	unpaid, err := s.payments.GetAllPending(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func totalIncomes(incomes []*income.Income) int64 {
 	return total
 }
 
-func totalPayments(payments []*pendingpayment.PendingPayment) int64 {
+func totalPayments(payments []*pending_payment.PendingPayment) int64 {
 	var total int64
 	for _, p := range payments {
 		total += p.Amount
@@ -95,7 +95,7 @@ func newNextIncome(i *income.Income, today time.Time) *NextIncome {
 }
 
 // newPendingPayments mapea los pagos pendientes ordenados por vencimiento.
-func newPendingPayments(payments []*pendingpayment.PendingPayment) []PendingPayment {
+func newPendingPayments(payments []*pending_payment.PendingPayment) []PendingPayment {
 	out := make([]PendingPayment, 0, len(payments))
 	for _, p := range payments {
 		out = append(out, PendingPayment{
