@@ -22,6 +22,8 @@ func NewIncomeRepository(client *firestore.Client) *IncomeRepository {
 }
 
 // Create genera un nuevo documento y devuelve el Income con su ID asignado.
+// El dueño (UserID) se persiste como el campo `userId` del documento, por el
+// tag firestore de la entidad.
 func (r *IncomeRepository) Create(ctx context.Context, i *income.Income) (*income.Income, error) {
 	doc := r.client.Collection(incomeCollection).NewDoc()
 	i.ID = doc.ID
@@ -29,6 +31,26 @@ func (r *IncomeRepository) Create(ctx context.Context, i *income.Income) (*incom
 		return nil, err
 	}
 	return i, nil
+}
+
+// ListByUser devuelve los ingresos cuyo dueño es userID.
+//
+// El filtro va en la consulta a Firestore, no en Go: nunca se traen los
+// documentos de los demás usuarios. Una condición de igualdad no matchea los
+// documentos que no tienen el campo, así que los ingresos anteriores a userId
+// quedan fuera sin necesidad de un filtro extra.
+//
+// Sin OrderBy a propósito: una igualdad más un orden por otro campo exigiría
+// un índice compuesto en Firestore.
+func (r *IncomeRepository) ListByUser(ctx context.Context, userID string) ([]*income.Income, error) {
+	snaps, err := r.client.Collection(incomeCollection).
+		Where("userId", "==", userID).
+		Documents(ctx).
+		GetAll()
+	if err != nil {
+		return nil, err
+	}
+	return toIncomes(snaps)
 }
 
 // ListReceived devuelve los ingresos con fecha anterior a until.

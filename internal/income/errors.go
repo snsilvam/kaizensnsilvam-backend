@@ -3,6 +3,9 @@ package income
 import "errors"
 
 var (
+	// ErrInvalidUserID se devuelve cuando el ingreso no tiene dueño.
+	ErrInvalidUserID = errors.New("income user id is required")
+
 	// ErrInvalidName se devuelve cuando el nombre está vacío.
 	ErrInvalidName = errors.New("income name is required")
 

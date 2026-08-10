@@ -3,6 +3,9 @@ package pending_payment
 import "errors"
 
 var (
+	// ErrInvalidUserID se devuelve cuando el pago pendiente no tiene dueño.
+	ErrInvalidUserID = errors.New("pending payment user id is required")
+
 	// ErrInvalidName se devuelve cuando el nombre está vacío.
 	ErrInvalidName = errors.New("pending payment name is required")
 

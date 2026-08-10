@@ -9,6 +9,10 @@ import (
 // La implementación concreta vive en infrastructure/firestore.
 type Repository interface {
 	Create(ctx context.Context, i *Income) (*Income, error)
+
+	// ListByUser devuelve los ingresos cuyo dueño es userID. El filtro se
+	// aplica en la consulta, no en Go.
+	ListByUser(ctx context.Context, userID string) ([]*Income, error)
 }
 
 // Reader es el contrato de lectura para Income.

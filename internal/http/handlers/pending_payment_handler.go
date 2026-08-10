@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/snsilvam/kaizensnsilvam-backend/internal/auth"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/pending_payment"
 )
 
@@ -22,6 +23,9 @@ func NewPendingPaymentHandler(svc *pending_payment.Service) *PendingPaymentHandl
 
 // registerPendingPaymentRequest es el body de POST /pending-payments.
 // DueDate se recibe en formato RFC3339 (p.ej. 2026-08-15T00:00:00Z).
+//
+// A propósito no tiene userId: el dueño sale del token verificado. Si el
+// cliente manda uno en el body, ShouldBindJSON lo descarta.
 type registerPendingPaymentRequest struct {
 	Name    string    `json:"name" binding:"required"`
 	Amount  int64     `json:"amount" binding:"required"`
@@ -49,13 +53,22 @@ func newPendingPaymentResponse(pp *pending_payment.PendingPayment) pendingPaymen
 
 // Register maneja POST /pending-payments
 func (h *PendingPaymentHandler) Register(c *gin.Context) {
+	// El dueño sale del token que ya verificó el middleware. En una ruta
+	// protegida esto siempre está; el 401 cubre que alguien monte la ruta
+	// sin el middleware.
+	userID, ok := auth.UID(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthenticated"})
+		return
+	}
+
 	var req registerPendingPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	pp, err := h.svc.RegisterPendingPayment(c.Request.Context(), req.Name, req.Amount, req.DueDate)
+	pp, err := h.svc.RegisterPendingPayment(c.Request.Context(), userID, req.Name, req.Amount, req.DueDate)
 	if err != nil {
 		if errors.Is(err, pending_payment.ErrInvalidName) ||
 			errors.Is(err, pending_payment.ErrInvalidAmount) ||
@@ -72,13 +85,21 @@ func (h *PendingPaymentHandler) Register(c *gin.Context) {
 
 // MarkAsPaid maneja PATCH /pending-payments/:id/mark-as-paid
 func (h *PendingPaymentHandler) MarkAsPaid(c *gin.Context) {
+	// El dueño sale del token, no del :id de la URL. Un pago de otro usuario
+	// responde 404, igual que uno inexistente.
+	userID, ok := auth.UID(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthenticated"})
+		return
+	}
+
 	id := c.Param("id")
 	if id == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
 		return
 	}
 
-	pp, err := h.svc.MarkPendingPaymentAsPaid(c.Request.Context(), id)
+	pp, err := h.svc.MarkPendingPaymentAsPaid(c.Request.Context(), userID, id)
 	if err != nil {
 		if errors.Is(err, pending_payment.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -91,9 +112,16 @@ func (h *PendingPaymentHandler) MarkAsPaid(c *gin.Context) {
 	c.JSON(http.StatusOK, newPendingPaymentResponse(pp))
 }
 
-// GetAll maneja GET /pending-payments
+// GetAll maneja GET /pending-payments y devuelve sólo los pagos del usuario
+// autenticado.
 func (h *PendingPaymentHandler) GetAll(c *gin.Context) {
-	payments, err := h.svc.GetAllPendingPayments(c.Request.Context())
+	userID, ok := auth.UID(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthenticated"})
+		return
+	}
+
+	payments, err := h.svc.GetAllPendingPayments(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
