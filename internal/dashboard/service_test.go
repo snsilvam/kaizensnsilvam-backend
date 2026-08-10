@@ -43,6 +43,22 @@ func (r *fakeIncomeReader) NextFrom(_ context.Context, from time.Time) (*income.
 	return r.next, nil
 }
 
+func (r *fakeIncomeReader) ListReceivedByUser(_ context.Context, _ string, until time.Time) ([]*income.Income, error) {
+	r.gotUntil = until
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.received, nil
+}
+
+func (r *fakeIncomeReader) NextFromByUser(_ context.Context, _ string, from time.Time) (*income.Income, error) {
+	r.gotFrom = from
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.next, nil
+}
+
 // fakePaymentRepository es un doble de prueba en memoria para pending_payment.Reader.
 type fakePaymentRepository struct {
 	unpaid []*pending_payment.PendingPayment
@@ -50,6 +66,13 @@ type fakePaymentRepository struct {
 }
 
 func (r *fakePaymentRepository) GetAllPending(_ context.Context) ([]*pending_payment.PendingPayment, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.unpaid, nil
+}
+
+func (r *fakePaymentRepository) GetPendingByUser(_ context.Context, _ string) ([]*pending_payment.PendingPayment, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
@@ -78,7 +101,7 @@ func TestGetDashboard_Success(t *testing.T) {
 		},
 	}
 
-	got, err := newTestService(incomes, payments).GetDashboard(context.Background())
+	got, err := newTestService(incomes, payments).GetDashboard(context.Background(), "test-user")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -129,7 +152,7 @@ func TestGetDashboard_DayBoundary(t *testing.T) {
 	incomes := &fakeIncomeReader{}
 	payments := &fakePaymentRepository{}
 
-	if _, err := newTestService(incomes, payments).GetDashboard(context.Background()); err != nil {
+	if _, err := newTestService(incomes, payments).GetDashboard(context.Background(), "test-user"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -148,7 +171,7 @@ func TestGetDashboard_NoFutureIncome(t *testing.T) {
 	}
 	payments := &fakePaymentRepository{}
 
-	got, err := newTestService(incomes, payments).GetDashboard(context.Background())
+	got, err := newTestService(incomes, payments).GetDashboard(context.Background(), "test-user")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -181,7 +204,7 @@ func TestGetDashboard_PlanStatus(t *testing.T) {
 				payments.unpaid = []*pending_payment.PendingPayment{{Amount: tc.payments, DueDate: date(20)}}
 			}
 
-			got, err := newTestService(incomes, payments).GetDashboard(context.Background())
+			got, err := newTestService(incomes, payments).GetDashboard(context.Background(), "test-user")
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -209,7 +232,7 @@ func TestGetDashboard_RepositoryError(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := newTestService(tc.incomes, tc.payments).GetDashboard(context.Background())
+			got, err := newTestService(tc.incomes, tc.payments).GetDashboard(context.Background(), "test-user")
 			if !errors.Is(err, wantErr) {
 				t.Fatalf("err = %v, want %v", err, wantErr)
 			}

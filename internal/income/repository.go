@@ -25,4 +25,12 @@ type Reader interface {
 	// NextFrom devuelve el ingreso más próximo con fecha igual o posterior
 	// a from. Devuelve (nil, nil) si no hay ninguno.
 	NextFrom(ctx context.Context, from time.Time) (*Income, error)
+
+	// ListReceivedByUser devuelve los ingresos cuyo dueño es userID y cuya fecha
+	// es anterior a until.
+	ListReceivedByUser(ctx context.Context, userID string, until time.Time) ([]*Income, error)
+
+	// NextFromByUser devuelve el ingreso más próximo cuyo dueño es userID y cuya
+	// fecha es igual o posterior a from. Devuelve (nil, nil) si no hay ninguno.
+	NextFromByUser(ctx context.Context, userID string, from time.Time) (*Income, error)
 }

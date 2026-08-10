@@ -24,23 +24,23 @@ func NewService(incomes income.Reader, payments pending_payment.Reader) *Service
 	return &Service{incomes: incomes, payments: payments, now: time.Now}
 }
 
-// GetDashboard arma la vista agregada del dashboard financiero.
-func (s *Service) GetDashboard(ctx context.Context) (*Dashboard, error) {
+// GetDashboard arma la vista agregada del dashboard financiero para el usuario.
+func (s *Service) GetDashboard(ctx context.Context, userID string) (*Dashboard, error) {
 	today := startOfDay(s.now())
 	tomorrow := today.AddDate(0, 0, 1)
 
 	// Recibido = todo ingreso con fecha de hoy o anterior.
-	received, err := s.incomes.ListReceived(ctx, tomorrow)
+	received, err := s.incomes.ListReceivedByUser(ctx, userID, tomorrow)
 	if err != nil {
 		return nil, err
 	}
 
-	next, err := s.incomes.NextFrom(ctx, tomorrow)
+	next, err := s.incomes.NextFromByUser(ctx, userID, tomorrow)
 	if err != nil {
 		return nil, err
 	}
 
-	unpaid, err := s.payments.GetAllPending(ctx)
+	unpaid, err := s.payments.GetPendingByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

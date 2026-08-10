@@ -93,6 +93,11 @@ func (r *PendingPaymentRepository) GetAllPending(ctx context.Context) ([]*pendin
 	return toPendingPayments(docs)
 }
 
+// GetPendingByUser retorna los pagos pendientes cuyo dueño es userID.
+func (r *PendingPaymentRepository) GetPendingByUser(ctx context.Context, userID string) ([]*pending_payment.PendingPayment, error) {
+	return r.ListPendingByUser(ctx, userID)
+}
+
 // toPendingPayments mapea documentos de Firestore a entidades de dominio.
 func toPendingPayments(docs []*firestore.DocumentSnapshot) ([]*pending_payment.PendingPayment, error) {
 	payments := make([]*pending_payment.PendingPayment, 0, len(docs))
