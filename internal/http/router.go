@@ -14,7 +14,7 @@ import (
 //go:embed swagger/index.html
 var swaggerUI []byte
 
-func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler, pendingPaymentHandler *handlers.PendingPaymentHandler, allowedOrigins []string) *gin.Engine {
+func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler, pendingPaymentHandler *handlers.PendingPaymentHandler, dashboardHandler *handlers.DashboardHandler, allowedOrigins []string) *gin.Engine {
 	r := gin.New()
 
 	r.Use(gin.Logger())
@@ -62,6 +62,8 @@ func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandle
 		pendingPayments.POST("", pendingPaymentHandler.Register)
 		pendingPayments.PATCH("/:id/mark-as-paid", pendingPaymentHandler.MarkAsPaid)
 	}
+
+	r.GET("/dashboard", dashboardHandler.Get)
 
 	return r
 }

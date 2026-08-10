@@ -39,6 +39,16 @@ func (m *mockRepository) Update(ctx context.Context, pp *PendingPayment) error {
 	return nil
 }
 
+func (m *mockRepository) GetAllPending(ctx context.Context) ([]*PendingPayment, error) {
+	pending := make([]*PendingPayment, 0, len(m.payments))
+	for _, pp := range m.payments {
+		if !pp.Paid {
+			pending = append(pending, pp)
+		}
+	}
+	return pending, nil
+}
+
 func TestRegisterPendingPayment(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
