@@ -2,6 +2,7 @@ package firestore
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -86,6 +87,72 @@ func (r *IncomeRepository) NextFrom(ctx context.Context, from time.Time) (*incom
 		return nil, err
 	}
 	return incomes[0], nil
+}
+
+// ListReceivedByUser devuelve los ingresos cuyo dueño es userID y cuya fecha es
+// anterior a until. El filtro por userId va en la consulta; el filtro por fecha
+// se aplica en Go para evitar requerir un índice compuesto.
+func (r *IncomeRepository) ListReceivedByUser(ctx context.Context, userID string, until time.Time) ([]*income.Income, error) {
+	snaps, err := r.client.Collection(incomeCollection).
+		Where("userId", "==", userID).
+		Documents(ctx).
+		GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	incomes, err := toIncomes(snaps)
+	if err != nil {
+		return nil, err
+	}
+
+	var received []*income.Income
+	for _, i := range incomes {
+		if i.Date.Before(until) {
+			received = append(received, i)
+		}
+	}
+	return received, nil
+}
+
+// NextFromByUser devuelve el ingreso más próximo cuyo dueño es userID y cuya
+// fecha es igual o posterior a from. Devuelve (nil, nil) si no hay ninguno.
+// El filtro por userId va en la consulta; el filtro por fecha y la ordenación
+// se aplican en Go para evitar requerir un índice compuesto.
+func (r *IncomeRepository) NextFromByUser(ctx context.Context, userID string, from time.Time) (*income.Income, error) {
+	snaps, err := r.client.Collection(incomeCollection).
+		Where("userId", "==", userID).
+		Documents(ctx).
+		GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(snaps) == 0 {
+		return nil, nil
+	}
+
+	incomes, err := toIncomes(snaps)
+	if err != nil {
+		return nil, err
+	}
+
+	var candidates []*income.Income
+	for _, i := range incomes {
+		if i.Date.Equal(from) || i.Date.After(from) {
+			candidates = append(candidates, i)
+		}
+	}
+
+	if len(candidates) == 0 {
+		return nil, nil
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].Date.Before(candidates[j].Date)
+	})
+
+	return candidates[0], nil
 }
 
 // toIncomes mapea documentos de Firestore a entidades de dominio.

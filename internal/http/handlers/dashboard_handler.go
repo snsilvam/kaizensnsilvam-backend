@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/snsilvam/kaizensnsilvam-backend/internal/auth"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/dashboard"
 )
 
@@ -76,7 +77,13 @@ func newDashboardResponse(d *dashboard.Dashboard) dashboardResponse {
 
 // Get maneja GET /dashboard
 func (h *DashboardHandler) Get(c *gin.Context) {
-	d, err := h.svc.GetDashboard(c.Request.Context())
+	userID, ok := auth.UID(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	d, err := h.svc.GetDashboard(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -25,4 +25,7 @@ type Repository interface {
 type Reader interface {
 	// GetAllPending retorna todos los pagos pendientes donde paid == false.
 	GetAllPending(ctx context.Context) ([]*PendingPayment, error)
+
+	// GetPendingByUser retorna los pagos pendientes cuyo dueño es userID.
+	GetPendingByUser(ctx context.Context, userID string) ([]*PendingPayment, error)
 }
