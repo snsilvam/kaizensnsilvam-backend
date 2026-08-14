@@ -81,6 +81,36 @@ func (h *IncomeHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, newIncomeResponse(i))
 }
 
+// Delete maneja DELETE /incomes/:id y borra el ingreso de forma permanente.
+//
+// Responde 204 sin cuerpo: el recurso ya no existe, no queda nada que
+// representar. Un ingreso de otro usuario responde 404, igual que uno
+// inexistente.
+func (h *IncomeHandler) Delete(c *gin.Context) {
+	userID, ok := auth.UID(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthenticated"})
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		return
+	}
+
+	if err := h.svc.DeleteIncome(c.Request.Context(), userID, id); err != nil {
+		if errors.Is(err, income.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 // List maneja GET /incomes y devuelve sólo los ingresos del usuario autenticado.
 func (h *IncomeHandler) List(c *gin.Context) {
 	userID, ok := auth.UID(c.Request.Context())

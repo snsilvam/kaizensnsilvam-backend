@@ -14,4 +14,7 @@ var (
 
 	// ErrInvalidDate se devuelve cuando la fecha está vacía.
 	ErrInvalidDate = errors.New("income date is required")
+
+	// ErrNotFound se devuelve cuando el ingreso no existe.
+	ErrNotFound = errors.New("income not found")
 )

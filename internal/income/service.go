@@ -28,6 +28,30 @@ func (s *Service) RegisterIncome(ctx context.Context, userID, name string, amoun
 	return s.repo.Create(ctx, i)
 }
 
+// DeleteIncome borra de forma permanente el ingreso del usuario autenticado.
+// Es un borrado real: el documento deja de existir y no vuelve en ninguna
+// consulta.
+//
+// Si el ingreso existe pero es de otro usuario se devuelve ErrNotFound, igual
+// que si no existiera: así cambiar el id de la URL no revela qué ids son
+// válidos. Un documento antiguo sin dueño tampoco pertenece a nadie, así que
+// también cae en ErrNotFound.
+func (s *Service) DeleteIncome(ctx context.Context, userID, id string) error {
+	if strings.TrimSpace(userID) == "" {
+		return ErrInvalidUserID
+	}
+
+	i, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if i == nil || i.UserID != userID {
+		return ErrNotFound
+	}
+
+	return s.repo.Delete(ctx, id)
+}
+
 // GetIncomes devuelve los ingresos del usuario autenticado.
 //
 // userID lo aporta el handler desde el token verificado, nunca la query string

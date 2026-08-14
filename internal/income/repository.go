@@ -10,6 +10,16 @@ import (
 type Repository interface {
 	Create(ctx context.Context, i *Income) (*Income, error)
 
+	// GetByID obtiene un ingreso por su ID, sin filtrar por dueño: es un get
+	// de un documento y el dueño no se puede filtrar en la consulta. Quien lo
+	// llama debe verificar la propiedad antes de exponer el resultado.
+	GetByID(ctx context.Context, id string) (*Income, error)
+
+	// Delete borra el documento con ese ID de forma permanente. No filtra por
+	// dueño, igual que GetByID: quien lo llama debe verificar la propiedad
+	// antes de borrar.
+	Delete(ctx context.Context, id string) error
+
 	// ListByUser devuelve los ingresos cuyo dueño es userID. El filtro se
 	// aplica en la consulta, no en Go.
 	ListByUser(ctx context.Context, userID string) ([]*Income, error)

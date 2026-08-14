@@ -61,6 +61,7 @@ func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandle
 	{
 		incomes.GET("", incomeHandler.List)
 		incomes.POST("", incomeHandler.Register)
+		incomes.DELETE("/:id", incomeHandler.Delete)
 	}
 
 	pendingPayments := r.Group("/pending-payments", auth)

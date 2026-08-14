@@ -22,12 +22,36 @@ type spyIncomeRepository struct {
 	created    *income.Income
 	stored     []*income.Income
 	listedUser string
+	deletedID  string
 }
 
 func (r *spyIncomeRepository) Create(_ context.Context, i *income.Income) (*income.Income, error) {
 	i.ID = "generated-id"
 	r.created = i
 	return i, nil
+}
+
+// GetByID busca en stored sin filtrar por dueño, igual que el get de un
+// documento de Firestore: la propiedad la verifica el service.
+func (r *spyIncomeRepository) GetByID(_ context.Context, id string) (*income.Income, error) {
+	for _, i := range r.stored {
+		if i.ID == id {
+			return i, nil
+		}
+	}
+	return nil, income.ErrNotFound
+}
+
+func (r *spyIncomeRepository) Delete(_ context.Context, id string) error {
+	r.deletedID = id
+	kept := make([]*income.Income, 0, len(r.stored))
+	for _, i := range r.stored {
+		if i.ID != id {
+			kept = append(kept, i)
+		}
+	}
+	r.stored = kept
+	return nil
 }
 
 func (r *spyIncomeRepository) ListByUser(_ context.Context, userID string) ([]*income.Income, error) {
@@ -56,7 +80,15 @@ func newIncomeEngine(repo income.Repository, uid string) *gin.Engine {
 	}
 	r.GET("/incomes", h.List)
 	r.POST("/incomes", h.Register)
+	r.DELETE("/incomes/:id", h.Delete)
 	return r
+}
+
+func deleteIncome(engine *gin.Engine, target string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodDelete, target, nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+	return w
 }
 
 func getIncomes(engine *gin.Engine, target string) *httptest.ResponseRecorder {
@@ -207,6 +239,77 @@ func TestListIncomesIgnoresUserIDFromQueryString(t *testing.T) {
 		if id == "b1" {
 			t.Error("la query string dio acceso a los ingresos de uid-b")
 		}
+	}
+}
+
+// TestDeleteOwnIncomeSucceeds: el dueño borra su ingreso y el documento
+// desaparece.
+func TestDeleteOwnIncomeSucceeds(t *testing.T) {
+	repo := &spyIncomeRepository{stored: storedIncomes()}
+
+	w := deleteIncome(newIncomeEngine(repo, "uid-a"), "/incomes/a1")
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d (body=%q)", w.Code, http.StatusNoContent, w.Body.String())
+	}
+	if repo.deletedID != "a1" {
+		t.Errorf("Delete llamado con %q, want a1", repo.deletedID)
+	}
+	if w.Body.Len() != 0 {
+		t.Errorf("body = %q, want vacío", w.Body.String())
+	}
+}
+
+// TestDeleteOtherUsersIncomeIsNotFound: cambiar el :id de la URL no permite
+// borrar el ingreso de otro usuario.
+func TestDeleteOtherUsersIncomeIsNotFound(t *testing.T) {
+	repo := &spyIncomeRepository{stored: storedIncomes()}
+
+	w := deleteIncome(newIncomeEngine(repo, "uid-b"), "/incomes/a1")
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+	if repo.deletedID != "" {
+		t.Errorf("se llamó a Delete con %q", repo.deletedID)
+	}
+}
+
+// TestDeleteLegacyIncomeIsNotFound: un documento sin dueño no es de nadie, así
+// que nadie puede borrarlo.
+func TestDeleteLegacyIncomeIsNotFound(t *testing.T) {
+	repo := &spyIncomeRepository{stored: storedIncomes()}
+
+	w := deleteIncome(newIncomeEngine(repo, "uid-a"), "/incomes/legacy")
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+	if repo.deletedID != "" {
+		t.Errorf("se llamó a Delete con %q", repo.deletedID)
+	}
+}
+
+func TestDeleteNonExistentIncomeIsNotFound(t *testing.T) {
+	repo := &spyIncomeRepository{stored: storedIncomes()}
+
+	w := deleteIncome(newIncomeEngine(repo, "uid-a"), "/incomes/no-existe")
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
+
+func TestDeleteIncomeWithoutAuthenticationIsUnauthorized(t *testing.T) {
+	repo := &spyIncomeRepository{stored: storedIncomes()}
+
+	w := deleteIncome(newIncomeEngine(repo, ""), "/incomes/a1")
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusUnauthorized)
+	}
+	if repo.deletedID != "" {
+		t.Errorf("se borró un ingreso sin usuario autenticado: %q", repo.deletedID)
 	}
 }
 
