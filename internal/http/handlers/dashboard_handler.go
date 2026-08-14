@@ -38,11 +38,12 @@ type dashboardPendingPaymentResponse struct {
 
 // dashboardResponse es la representación REST del dashboard financiero.
 type dashboardResponse struct {
-	AvailableToday       int64                             `json:"availableToday"`
-	NextIncome           *nextIncomeResponse               `json:"nextIncome"`
-	PlanStatus           string                            `json:"planStatus"`
-	PendingPayments      []dashboardPendingPaymentResponse `json:"pendingPayments"`
-	PendingPaymentsCount int                               `json:"pendingPaymentsCount"`
+	AvailableToday            int64                             `json:"availableToday"`
+	AvailableAfterCommitments int64                             `json:"availableAfterCommitments"`
+	NextIncome                *nextIncomeResponse               `json:"nextIncome"`
+	PlanStatus                string                            `json:"planStatus"`
+	PendingPayments           []dashboardPendingPaymentResponse `json:"pendingPayments"`
+	PendingPaymentsCount      int                               `json:"pendingPaymentsCount"`
 }
 
 func newDashboardResponse(d *dashboard.Dashboard) dashboardResponse {
@@ -67,11 +68,12 @@ func newDashboardResponse(d *dashboard.Dashboard) dashboardResponse {
 	}
 
 	return dashboardResponse{
-		AvailableToday:       d.AvailableToday,
-		NextIncome:           next,
-		PlanStatus:           d.PlanStatus,
-		PendingPayments:      payments,
-		PendingPaymentsCount: d.PendingPaymentsCount,
+		AvailableToday:            d.AvailableToday,
+		AvailableAfterCommitments: d.AvailableAfterCommitments,
+		NextIncome:                next,
+		PlanStatus:                d.PlanStatus,
+		PendingPayments:           payments,
+		PendingPaymentsCount:      d.PendingPaymentsCount,
 	}
 }
 

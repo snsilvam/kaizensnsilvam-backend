@@ -255,6 +255,10 @@ paths:
         colección propia, orquesta los repositorios de Income y PendingPayment.
         Responde cuánto se puede gastar hoy, cuándo llega el próximo ingreso
         y si el plan va bien o mal.
+
+        La plata viene en dos números: availableToday es caja real (solo la
+        mueve lo que ya entró o salió) y availableAfterCommitments es la
+        proyección tras cubrir lo pendiente.
       responses:
         "200":
           description: Dashboard calculado
@@ -482,9 +486,17 @@ components:
           type: integer
           format: int64
           description: >
-            Ingresos ya recibidos (fecha de hoy o anterior) menos el total
-            de pagos pendientes sin pagar.
-          example: 180000
+            Caja real: ingresos ya recibidos (fecha de hoy o anterior) menos
+            los pagos ya realizados (paid == true). Registrar un pago pendiente
+            no la modifica; marcarlo como pagado la reduce.
+          example: 270000
+        availableAfterCommitments:
+          type: integer
+          format: int64
+          description: >
+            availableToday menos el total de pagos pendientes: lo que quedaría
+            si hoy se cubrieran todos los compromisos. Puede ser negativo.
+          example: 150000
         nextIncome:
           description: Próximo ingreso futuro, o null si no hay ninguno.
           nullable: true
@@ -493,8 +505,8 @@ components:
         planStatus:
           type: string
           description: >
-            Derivado de availableToday. V1: on_track si es mayor que cero,
-            at_risk en cualquier otro caso.
+            Derivado de availableAfterCommitments. V1: on_track si es mayor que
+            cero, at_risk en cualquier otro caso.
           enum: [on_track, at_risk]
           example: on_track
         pendingPayments:
