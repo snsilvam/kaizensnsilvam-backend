@@ -112,6 +112,36 @@ func (h *PendingPaymentHandler) MarkAsPaid(c *gin.Context) {
 	c.JSON(http.StatusOK, newPendingPaymentResponse(pp))
 }
 
+// Delete maneja DELETE /pending-payments/:id y borra el pago de forma
+// permanente.
+//
+// Responde 204 sin cuerpo: el recurso ya no existe, no queda nada que
+// representar. Un pago de otro usuario responde 404, igual que uno inexistente.
+func (h *PendingPaymentHandler) Delete(c *gin.Context) {
+	userID, ok := auth.UID(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthenticated"})
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		return
+	}
+
+	if err := h.svc.DeletePendingPayment(c.Request.Context(), userID, id); err != nil {
+		if errors.Is(err, pending_payment.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 // GetAll maneja GET /pending-payments y devuelve sólo los pagos del usuario
 // autenticado.
 func (h *PendingPaymentHandler) GetAll(c *gin.Context) {

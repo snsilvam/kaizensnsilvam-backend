@@ -221,6 +221,28 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /pending-payments/{id}:
+    delete:
+      tags: [pending-payments]
+      summary: Elimina un pago pendiente
+      description: >
+        Caso de uso DeletePendingPayment. Borra el documento de forma
+        permanente: no es un cambio de estado y no se puede deshacer. Sólo
+        opera sobre pagos del usuario autenticado: si el id es de otro usuario,
+        o de un registro sin dueño, responde 404 igual que si no existiera,
+        para no revelar qué ids son válidos.
+      parameters:
+        - $ref: "#/components/parameters/IDParam"
+      responses:
+        "204":
+          description: Pago pendiente eliminado. Sin cuerpo.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /pending-payments/{id}/mark-as-paid:
     patch:
       tags: [pending-payments]

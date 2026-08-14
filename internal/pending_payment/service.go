@@ -56,6 +56,30 @@ func (s *Service) MarkPendingPaymentAsPaid(ctx context.Context, userID, id strin
 	return pp, nil
 }
 
+// DeletePendingPayment borra de forma permanente el pago pendiente del usuario
+// autenticado. Es un borrado real, no un cambio de estado: el documento deja
+// de existir y no vuelve en ninguna consulta.
+//
+// Las mismas reglas de propiedad que MarkPendingPaymentAsPaid: si el pago
+// existe pero es de otro usuario se devuelve ErrNotFound, igual que si no
+// existiera, para no revelar qué ids son válidos. Un documento antiguo sin
+// dueño tampoco pertenece a nadie y también cae en ErrNotFound.
+func (s *Service) DeletePendingPayment(ctx context.Context, userID, id string) error {
+	if strings.TrimSpace(userID) == "" {
+		return ErrInvalidUserID
+	}
+
+	pp, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if pp == nil || pp.UserID != userID {
+		return ErrNotFound
+	}
+
+	return s.repo.Delete(ctx, id)
+}
+
 // GetAllPendingPayments retorna los pagos con paid == false del usuario
 // autenticado.
 //

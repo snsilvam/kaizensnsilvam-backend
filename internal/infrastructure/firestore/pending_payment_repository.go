@@ -61,6 +61,16 @@ func (r *PendingPaymentRepository) Update(ctx context.Context, pp *pending_payme
 	return err
 }
 
+// Delete borra el documento de forma permanente.
+//
+// Firestore no falla al borrar un documento inexistente, así que la existencia
+// y la propiedad se verifican antes, en el service: aquí un id desconocido no
+// se distingue de uno ya borrado.
+func (r *PendingPaymentRepository) Delete(ctx context.Context, id string) error {
+	_, err := r.client.Collection(pendingPaymentCollection).Doc(id).Delete(ctx)
+	return err
+}
+
 // ListPendingByUser retorna los pagos con paid == false cuyo dueño es userID.
 //
 // Los dos filtros van en la consulta a Firestore, no en Go: nunca se traen los

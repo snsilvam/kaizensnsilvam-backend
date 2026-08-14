@@ -68,6 +68,7 @@ func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandle
 		pendingPayments.GET("", pendingPaymentHandler.GetAll)
 		pendingPayments.POST("", pendingPaymentHandler.Register)
 		pendingPayments.PATCH("/:id/mark-as-paid", pendingPaymentHandler.MarkAsPaid)
+		pendingPayments.DELETE("/:id", pendingPaymentHandler.Delete)
 	}
 
 	r.GET("/dashboard", auth, dashboardHandler.Get)
