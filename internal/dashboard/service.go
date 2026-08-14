@@ -45,18 +45,33 @@ func (s *Service) GetDashboard(ctx context.Context, userID string) (*Dashboard, 
 		return nil, err
 	}
 
-	available := totalIncomes(received) - totalPayments(unpaid)
+	paid, err := s.payments.GetPaidByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Caja real: de los ingresos recibidos solo descuenta la plata que ya salió,
+	// es decir los pagos realizados. Un pago pendiente todavía no es un gasto.
+	available := totalIncomes(received) - totalPayments(paid)
+
+	// Proyección: lo que quedaría si hoy se pagara todo lo pendiente. Cuando un
+	// pago se marca como realizado pasa de este término al anterior, así que
+	// este número no se mueve: el compromiso se cumplió, no desapareció.
+	afterCommitments := available - totalPayments(unpaid)
 
 	return &Dashboard{
-		AvailableToday:       available,
-		NextIncome:           newNextIncome(next, today),
-		PlanStatus:           planStatus(available),
-		PendingPayments:      newPendingPayments(unpaid),
-		PendingPaymentsCount: len(unpaid),
+		AvailableToday:            available,
+		AvailableAfterCommitments: afterCommitments,
+		NextIncome:                newNextIncome(next, today),
+		PlanStatus:                planStatus(afterCommitments),
+		PendingPayments:           newPendingPayments(unpaid),
+		PendingPaymentsCount:      len(unpaid),
 	}, nil
 }
 
-// planStatus deriva el estado del plan del dinero disponible hoy.
+// planStatus deriva el estado del plan del dinero que quedaría tras cubrir los
+// compromisos, no de la caja de hoy: tener plata hoy no significa ir bien si
+// no alcanza para lo que se debe.
 func planStatus(available int64) string {
 	if available > 0 {
 		return PlanStatusOnTrack

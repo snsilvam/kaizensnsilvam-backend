@@ -27,5 +27,10 @@ type Reader interface {
 	GetAllPending(ctx context.Context) ([]*PendingPayment, error)
 
 	// GetPendingByUser retorna los pagos pendientes cuyo dueño es userID.
+	// Son compromisos: plata que se debe, pero que todavía no ha salido.
 	GetPendingByUser(ctx context.Context, userID string) ([]*PendingPayment, error)
+
+	// GetPaidByUser retorna los pagos ya realizados (paid == true) cuyo dueño
+	// es userID. Son gastos consumados: plata que ya salió de la caja.
+	GetPaidByUser(ctx context.Context, userID string) ([]*PendingPayment, error)
 }

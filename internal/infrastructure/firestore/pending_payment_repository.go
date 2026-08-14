@@ -98,6 +98,22 @@ func (r *PendingPaymentRepository) GetPendingByUser(ctx context.Context, userID 
 	return r.ListPendingByUser(ctx, userID)
 }
 
+// GetPaidByUser retorna los pagos con paid == true cuyo dueño es userID.
+//
+// Es la consulta simétrica a ListPendingByUser y vale el mismo razonamiento:
+// los dos filtros van en la consulta, y por ser dos igualdades sobre campos
+// distintos los resuelven los índices de campo único, sin índice compuesto.
+func (r *PendingPaymentRepository) GetPaidByUser(ctx context.Context, userID string) ([]*pending_payment.PendingPayment, error) {
+	query := r.client.Collection(pendingPaymentCollection).
+		Where("userId", "==", userID).
+		Where("paid", "==", true)
+	docs, err := query.Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	return toPendingPayments(docs)
+}
+
 // toPendingPayments mapea documentos de Firestore a entidades de dominio.
 func toPendingPayments(docs []*firestore.DocumentSnapshot) ([]*pending_payment.PendingPayment, error) {
 	payments := make([]*pending_payment.PendingPayment, 0, len(docs))
