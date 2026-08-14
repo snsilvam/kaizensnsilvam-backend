@@ -14,6 +14,11 @@ type Repository interface {
 
 	Update(ctx context.Context, pp *PendingPayment) error
 
+	// Delete borra el documento con ese ID de forma permanente. No filtra por
+	// dueño, igual que GetByID: quien lo llama debe verificar la propiedad
+	// antes de borrar.
+	Delete(ctx context.Context, id string) error
+
 	// ListPendingByUser devuelve los pagos sin pagar cuyo dueño es userID.
 	// El filtro se aplica en la consulta, no en Go.
 	ListPendingByUser(ctx context.Context, userID string) ([]*PendingPayment, error)

@@ -16,6 +16,7 @@ type mockRepository struct {
 	payments   map[string]*PendingPayment
 	listedUser string
 	listCalls  int
+	deletedID  string
 }
 
 func newMockRepository() *mockRepository {
@@ -43,6 +44,14 @@ func (m *mockRepository) Update(ctx context.Context, pp *PendingPayment) error {
 		return ErrNotFound
 	}
 	m.payments[pp.ID] = pp
+	return nil
+}
+
+// Delete borra sin filtrar por dueño, igual que la consulta de Firestore:
+// la propiedad la verifica el service antes de llamar.
+func (m *mockRepository) Delete(ctx context.Context, id string) error {
+	m.deletedID = id
+	delete(m.payments, id)
 	return nil
 }
 
@@ -184,6 +193,109 @@ func TestMarkPendingPaymentAsPaid(t *testing.T) {
 	}
 	if paid.UserID != testUserID {
 		t.Errorf("expected UserID to be preserved as %s, got %s", testUserID, paid.UserID)
+	}
+}
+
+func TestDeletePendingPayment(t *testing.T) {
+	repo := newMockRepository()
+	repo.payments["mio"] = &PendingPayment{
+		ID:      "mio",
+		UserID:  testUserID,
+		Name:    "Internet",
+		Amount:  90000,
+		DueDate: time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC),
+	}
+	svc := NewService(repo)
+
+	if err := svc.DeletePendingPayment(context.Background(), testUserID, "mio"); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if repo.deletedID != "mio" {
+		t.Errorf("expected repo.Delete con id mio, got %q", repo.deletedID)
+	}
+	// Borrado real: el documento desaparece, no queda marcado de otra forma.
+	if _, exists := repo.payments["mio"]; exists {
+		t.Error("el pago sigue existiendo tras el borrado")
+	}
+}
+
+// TestDeletePendingPayment_OtherUsersRecordIsNotFound es la prueba central:
+// cambiar el id de la URL no permite borrar el pago de otro usuario, y la
+// respuesta es la misma que la de un id inexistente.
+func TestDeletePendingPayment_OtherUsersRecordIsNotFound(t *testing.T) {
+	repo := newMockRepository()
+	repo.payments["de-uid-a"] = &PendingPayment{
+		ID:      "de-uid-a",
+		UserID:  "uid-a",
+		Name:    "Arriendo",
+		Amount:  100000,
+		DueDate: time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC),
+	}
+	svc := NewService(repo)
+
+	err := svc.DeletePendingPayment(context.Background(), "uid-b", "de-uid-a")
+
+	if err != ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+	if _, exists := repo.payments["de-uid-a"]; !exists {
+		t.Error("uid-b borró el pago de uid-a")
+	}
+	if repo.deletedID != "" {
+		t.Errorf("no debió llamarse a repo.Delete, got %q", repo.deletedID)
+	}
+}
+
+// TestDeletePendingPayment_LegacyRecordIsNotFound: un documento anterior a
+// userId no es de nadie, así que nadie puede borrarlo.
+func TestDeletePendingPayment_LegacyRecordIsNotFound(t *testing.T) {
+	repo := newMockRepository()
+	repo.payments["legacy-id"] = &PendingPayment{
+		ID:      "legacy-id",
+		Name:    "Arriendo",
+		Amount:  100000,
+		DueDate: time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC),
+	}
+	svc := NewService(repo)
+
+	err := svc.DeletePendingPayment(context.Background(), testUserID, "legacy-id")
+
+	if err != ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+	if _, exists := repo.payments["legacy-id"]; !exists {
+		t.Error("se borró un documento sin dueño")
+	}
+}
+
+func TestDeletePendingPayment_NotFound(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	err := svc.DeletePendingPayment(context.Background(), testUserID, "non-existent-id")
+
+	if err != ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
+// TestDeletePendingPayment_RequiresUserID: sin dueño no se borra nada. Un UID
+// vacío no puede usarse para barrer los documentos antiguos sin dueño.
+func TestDeletePendingPayment_RequiresUserID(t *testing.T) {
+	repo := newMockRepository()
+	repo.payments["some-id"] = &PendingPayment{ID: "some-id", UserID: testUserID}
+	svc := NewService(repo)
+
+	for _, uid := range []string{"", "   "} {
+		err := svc.DeletePendingPayment(context.Background(), uid, "some-id")
+
+		if err != ErrInvalidUserID {
+			t.Errorf("uid %q: expected ErrInvalidUserID, got %v", uid, err)
+		}
+		if _, exists := repo.payments["some-id"]; !exists {
+			t.Errorf("uid %q: se borró el pago sin dueño autenticado", uid)
+		}
 	}
 }
 

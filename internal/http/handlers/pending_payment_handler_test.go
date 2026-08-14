@@ -22,6 +22,7 @@ type spyPendingPaymentRepository struct {
 	created    *pending_payment.PendingPayment
 	stored     map[string]*pending_payment.PendingPayment
 	listedUser string
+	deletedID  string
 }
 
 func (r *spyPendingPaymentRepository) Create(_ context.Context, pp *pending_payment.PendingPayment) (*pending_payment.PendingPayment, error) {
@@ -40,6 +41,12 @@ func (r *spyPendingPaymentRepository) GetByID(_ context.Context, id string) (*pe
 
 func (r *spyPendingPaymentRepository) Update(_ context.Context, pp *pending_payment.PendingPayment) error {
 	r.stored[pp.ID] = pp
+	return nil
+}
+
+func (r *spyPendingPaymentRepository) Delete(_ context.Context, id string) error {
+	r.deletedID = id
+	delete(r.stored, id)
 	return nil
 }
 
@@ -75,6 +82,7 @@ func newPendingPaymentEngine(repo pending_payment.Repository, uid string) *gin.E
 	r.GET("/pending-payments", h.GetAll)
 	r.POST("/pending-payments", h.Register)
 	r.PATCH("/pending-payments/:id/mark-as-paid", h.MarkAsPaid)
+	r.DELETE("/pending-payments/:id", h.Delete)
 	return r
 }
 
@@ -291,5 +299,87 @@ func TestMarkAsPaidWithoutAuthenticationIsUnauthorized(t *testing.T) {
 	}
 	if repo.stored["a1"].Paid {
 		t.Error("se modificó un pago sin usuario autenticado")
+	}
+}
+
+// TestDeleteOwnRecordSucceeds: el dueño borra su pago y el documento desaparece.
+func TestDeleteOwnRecordSucceeds(t *testing.T) {
+	repo := newSpyPendingPaymentRepository()
+	storePendingPaymentsOfThreeOwners(repo)
+
+	w := doPendingPaymentRequest(newPendingPaymentEngine(repo, "uid-a"), http.MethodDelete, "/pending-payments/a1")
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d (body=%q)", w.Code, http.StatusNoContent, w.Body.String())
+	}
+	if w.Body.Len() != 0 {
+		t.Errorf("body = %q, want vacío", w.Body.String())
+	}
+	if _, exists := repo.stored["a1"]; exists {
+		t.Error("el pago sigue existiendo tras el borrado")
+	}
+	// Borrado real, no un cambio de estado: los demás pagos siguen intactos.
+	if _, exists := repo.stored["a2"]; !exists {
+		t.Error("se borró un pago que no era el pedido")
+	}
+}
+
+// TestDeleteOtherUsersRecordIsNotFound: cambiar el :id de la URL no permite
+// borrar el pago de otro usuario, y responde 404 igual que un id inexistente.
+func TestDeleteOtherUsersRecordIsNotFound(t *testing.T) {
+	repo := newSpyPendingPaymentRepository()
+	storePendingPaymentsOfThreeOwners(repo)
+
+	w := doPendingPaymentRequest(newPendingPaymentEngine(repo, "uid-b"), http.MethodDelete, "/pending-payments/a1")
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d (body=%q)", w.Code, http.StatusNotFound, w.Body.String())
+	}
+	if _, exists := repo.stored["a1"]; !exists {
+		t.Error("uid-b borró el pago de uid-a")
+	}
+	if repo.deletedID != "" {
+		t.Errorf("se llamó a Delete con %q", repo.deletedID)
+	}
+}
+
+// TestDeleteLegacyRecordIsNotFound: un documento sin dueño no es de nadie, así
+// que nadie puede borrarlo.
+func TestDeleteLegacyRecordIsNotFound(t *testing.T) {
+	repo := newSpyPendingPaymentRepository()
+	storePendingPaymentsOfThreeOwners(repo)
+
+	w := doPendingPaymentRequest(newPendingPaymentEngine(repo, "uid-a"), http.MethodDelete, "/pending-payments/legacy")
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+	if _, exists := repo.stored["legacy"]; !exists {
+		t.Error("se borró un documento sin dueño")
+	}
+}
+
+func TestDeleteNonExistentRecordIsNotFound(t *testing.T) {
+	repo := newSpyPendingPaymentRepository()
+	storePendingPaymentsOfThreeOwners(repo)
+
+	w := doPendingPaymentRequest(newPendingPaymentEngine(repo, "uid-a"), http.MethodDelete, "/pending-payments/no-existe")
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
+
+func TestDeleteWithoutAuthenticationIsUnauthorized(t *testing.T) {
+	repo := newSpyPendingPaymentRepository()
+	storePendingPaymentsOfThreeOwners(repo)
+
+	w := doPendingPaymentRequest(newPendingPaymentEngine(repo, ""), http.MethodDelete, "/pending-payments/a1")
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusUnauthorized)
+	}
+	if _, exists := repo.stored["a1"]; !exists {
+		t.Error("se borró un pago sin usuario autenticado")
 	}
 }
