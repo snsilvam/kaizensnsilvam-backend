@@ -19,6 +19,7 @@ type fakeRepository struct {
 	calls      int
 	stored     []*Income
 	listedUser string
+	deletedID  string
 }
 
 func (r *fakeRepository) Create(_ context.Context, i *Income) (*Income, error) {
@@ -29,6 +30,38 @@ func (r *fakeRepository) Create(_ context.Context, i *Income) (*Income, error) {
 	i.ID = "generated-id"
 	r.created = i
 	return i, nil
+}
+
+// GetByID busca en stored sin filtrar por dueño, igual que el get de un
+// documento de Firestore: la propiedad la verifica el service.
+func (r *fakeRepository) GetByID(_ context.Context, id string) (*Income, error) {
+	r.calls++
+	if r.err != nil {
+		return nil, r.err
+	}
+	for _, i := range r.stored {
+		if i.ID == id {
+			return i, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+// Delete borra sin filtrar por dueño, igual que la consulta de Firestore.
+func (r *fakeRepository) Delete(_ context.Context, id string) error {
+	r.calls++
+	if r.err != nil {
+		return r.err
+	}
+	r.deletedID = id
+	kept := make([]*Income, 0, len(r.stored))
+	for _, i := range r.stored {
+		if i.ID != id {
+			kept = append(kept, i)
+		}
+	}
+	r.stored = kept
+	return nil
 }
 
 func (r *fakeRepository) ListByUser(_ context.Context, userID string) ([]*Income, error) {
@@ -208,6 +241,87 @@ func TestGetIncomes_LegacyRecordsAreNeverReturned(t *testing.T) {
 			if i.ID == "legacy" {
 				t.Errorf("%s recibió el ingreso antiguo sin dueño", uid)
 			}
+		}
+	}
+}
+
+func TestDeleteIncome_Success(t *testing.T) {
+	repo := &fakeRepository{stored: incomesOfThreeOwners()}
+	svc := NewService(repo)
+
+	if err := svc.DeleteIncome(context.Background(), "uid-a", "a1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if repo.deletedID != "a1" {
+		t.Errorf("repo.Delete llamado con %q, want a1", repo.deletedID)
+	}
+	// Borrado real: el documento desaparece, no queda marcado de otra forma.
+	for _, i := range repo.stored {
+		if i.ID == "a1" {
+			t.Error("el ingreso sigue existiendo tras el borrado")
+		}
+	}
+}
+
+// TestDeleteIncome_OtherUsersRecordIsNotFound es la prueba central: cambiar el
+// id de la URL no permite borrar el ingreso de otro usuario, y la respuesta es
+// la misma que la de un id inexistente.
+func TestDeleteIncome_OtherUsersRecordIsNotFound(t *testing.T) {
+	repo := &fakeRepository{stored: incomesOfThreeOwners()}
+	svc := NewService(repo)
+
+	err := svc.DeleteIncome(context.Background(), "uid-b", "a1")
+
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+	if repo.deletedID != "" {
+		t.Errorf("no debió llamarse a repo.Delete, got %q", repo.deletedID)
+	}
+}
+
+// TestDeleteIncome_LegacyRecordIsNotFound: un documento anterior a userId no es
+// de nadie, así que nadie puede borrarlo.
+func TestDeleteIncome_LegacyRecordIsNotFound(t *testing.T) {
+	repo := &fakeRepository{stored: incomesOfThreeOwners()}
+	svc := NewService(repo)
+
+	err := svc.DeleteIncome(context.Background(), testUserID, "legacy")
+
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+	if repo.deletedID != "" {
+		t.Errorf("se borró un documento sin dueño: %q", repo.deletedID)
+	}
+}
+
+func TestDeleteIncome_NotFound(t *testing.T) {
+	repo := &fakeRepository{stored: incomesOfThreeOwners()}
+	svc := NewService(repo)
+
+	err := svc.DeleteIncome(context.Background(), "uid-a", "no-existe")
+
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+}
+
+// TestDeleteIncome_RequiresUserID: sin dueño no se borra nada. Un UID vacío no
+// puede usarse para barrer los documentos antiguos sin dueño.
+func TestDeleteIncome_RequiresUserID(t *testing.T) {
+	for _, uid := range []string{"", "   "} {
+		repo := &fakeRepository{stored: incomesOfThreeOwners()}
+		svc := NewService(repo)
+
+		err := svc.DeleteIncome(context.Background(), uid, "a1")
+
+		if !errors.Is(err, ErrInvalidUserID) {
+			t.Errorf("uid %q: err = %v, want ErrInvalidUserID", uid, err)
+		}
+		if repo.calls != 0 {
+			t.Errorf("uid %q: repo calls = %d, want 0 (no debe borrar sin dueño)", uid, repo.calls)
 		}
 	}
 }

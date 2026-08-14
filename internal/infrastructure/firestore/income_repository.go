@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/income"
 )
@@ -32,6 +34,34 @@ func (r *IncomeRepository) Create(ctx context.Context, i *income.Income) (*incom
 		return nil, err
 	}
 	return i, nil
+}
+
+// GetByID obtiene un Income por su ID.
+func (r *IncomeRepository) GetByID(ctx context.Context, id string) (*income.Income, error) {
+	snap, err := r.client.Collection(incomeCollection).Doc(id).Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, income.ErrNotFound
+		}
+		return nil, err
+	}
+
+	var i income.Income
+	if err := snap.DataTo(&i); err != nil {
+		return nil, err
+	}
+	i.ID = snap.Ref.ID
+	return &i, nil
+}
+
+// Delete borra el documento de forma permanente.
+//
+// Firestore no falla al borrar un documento inexistente, así que la existencia
+// y la propiedad se verifican antes, en el service: aquí un id desconocido no
+// se distingue de uno ya borrado.
+func (r *IncomeRepository) Delete(ctx context.Context, id string) error {
+	_, err := r.client.Collection(incomeCollection).Doc(id).Delete(ctx)
+	return err
 }
 
 // ListByUser devuelve los ingresos cuyo dueño es userID.
