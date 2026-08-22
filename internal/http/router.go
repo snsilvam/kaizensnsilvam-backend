@@ -17,7 +17,7 @@ var swaggerUI []byte
 // New arma el router. auth es el middleware de autenticación que protege las
 // rutas de negocio; /health, / y la documentación quedan públicas para que el
 // health check de Cloud Run y Swagger sigan funcionando sin token.
-func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler, pendingPaymentHandler *handlers.PendingPaymentHandler, dashboardHandler *handlers.DashboardHandler, auth gin.HandlerFunc, allowedOrigins []string) *gin.Engine {
+func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandler, incomeHandler *handlers.IncomeHandler, pendingPaymentHandler *handlers.PendingPaymentHandler, habit1Handler *handlers.Habit1Handler, dashboardHandler *handlers.DashboardHandler, auth gin.HandlerFunc, allowedOrigins []string) *gin.Engine {
 	r := gin.New()
 
 	r.Use(gin.Logger())
@@ -70,6 +70,12 @@ func New(familyHandler *handlers.FamilyHandler, userHandler *handlers.UserHandle
 		pendingPayments.POST("", pendingPaymentHandler.Register)
 		pendingPayments.PATCH("/:id/mark-as-paid", pendingPaymentHandler.MarkAsPaid)
 		pendingPayments.DELETE("/:id", pendingPaymentHandler.Delete)
+	}
+
+	habit1Records := r.Group("/habit-1", auth)
+	{
+		habit1Records.GET("", habit1Handler.List)
+		habit1Records.POST("", habit1Handler.Register)
 	}
 
 	r.GET("/dashboard", auth, dashboardHandler.Get)
