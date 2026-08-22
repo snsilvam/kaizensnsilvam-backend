@@ -20,6 +20,7 @@ tags:
   - name: users
   - name: incomes
   - name: pending-payments
+  - name: habit-1
   - name: dashboard
 
 paths:
@@ -290,6 +291,61 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /habit-1:
+    get:
+      tags: [habit-1]
+      summary: Lista los registros del hábito 1 del usuario autenticado
+      description: >
+        Devuelve los registros cuyo dueño es el UID del ID token, ordenados por
+        número de repetición. El dueño sale del token verificado: no hay
+        parámetro para consultar los registros de otro usuario.
+      responses:
+        "200":
+          description: Registros del usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Habit1Record"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [habit-1]
+      summary: Registra el día del hábito 1
+      description: >
+        Caso de uso RegisterHabit1. Persiste el registro que envía el usuario y,
+        además, crea automáticamente el del día siguiente: un día más, una
+        repetición más y la hora de despertar 15 minutos antes. Los demás campos
+        del registro automático quedan en su valor por defecto (00:00 y false).
+        La respuesta es sólo el registro que envió el usuario; el del día
+        siguiente aparece en el GET.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterHabit1Request"
+      responses:
+        "201":
+          description: Registro creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Habit1Record"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /dashboard:
     get:
       tags: [dashboard]
@@ -501,6 +557,71 @@ components:
         paid:
           type: boolean
           example: false
+
+    RegisterHabit1Request:
+      type: object
+      required: [numeroDeRepeticion, fecha, horaDespertar, horaDormir, horasDormidas]
+      properties:
+        numeroDeRepeticion:
+          type: integer
+          description: Número de la repetición del hábito. Debe ser mayor que cero.
+          example: 5
+        fecha:
+          type: string
+          format: date-time
+          description: Fecha del registro en formato RFC3339.
+          example: "2026-08-22T00:00:00Z"
+        horaDespertar:
+          type: string
+          description: Hora a la que se despertó, en formato "HH:MM" de 24 horas.
+          example: "06:00"
+        horaDormir:
+          type: string
+          description: Hora a la que se fue a dormir, en formato "HH:MM" de 24 horas.
+          example: "22:30"
+        horasDormidas:
+          type: string
+          description: >
+            Duración del sueño con el mismo formato "HH:MM": "07:30" son 7 horas
+            y 30 minutos.
+          example: "07:30"
+        ritualNoche:
+          type: boolean
+          default: false
+          example: true
+        ritualDia:
+          type: boolean
+          default: false
+          example: true
+
+    Habit1Record:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 8f2c1a3b4d5e
+        numeroDeRepeticion:
+          type: integer
+          example: 5
+        fecha:
+          type: string
+          format: date-time
+          example: "2026-08-22T00:00:00Z"
+        horaDespertar:
+          type: string
+          example: "06:00"
+        horaDormir:
+          type: string
+          example: "22:30"
+        horasDormidas:
+          type: string
+          example: "07:30"
+        ritualNoche:
+          type: boolean
+          example: true
+        ritualDia:
+          type: boolean
+          example: true
 
     DashboardPendingPayment:
       type: object

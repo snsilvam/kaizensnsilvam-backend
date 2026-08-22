@@ -8,6 +8,7 @@ import (
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/config"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/dashboard"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/family"
+	"github.com/snsilvam/kaizensnsilvam-backend/internal/habit1"
 	router "github.com/snsilvam/kaizensnsilvam-backend/internal/http"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/http/handlers"
 	"github.com/snsilvam/kaizensnsilvam-backend/internal/http/middleware"
@@ -61,12 +62,16 @@ func main() {
 	pendingPaymentSvc := pending_payment.NewService(pendingPaymentRepo)
 	pendingPaymentHandler := handlers.NewPendingPaymentHandler(pendingPaymentSvc)
 
+	habit1Repo := fs.NewHabit1Repository(fsClient)
+	habit1Svc := habit1.NewService(habit1Repo)
+	habit1Handler := handlers.NewHabit1Handler(habit1Svc)
+
 	// El dashboard no tiene colección propia: reutiliza los repositorios
 	// de Income y PendingPayment.
 	dashboardSvc := dashboard.NewService(incomeRepo, pendingPaymentRepo)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardSvc)
 
-	r := router.New(familyHandler, userHandler, incomeHandler, pendingPaymentHandler, dashboardHandler, authMiddleware, cfg.AllowedOrigins)
+	r := router.New(familyHandler, userHandler, incomeHandler, pendingPaymentHandler, habit1Handler, dashboardHandler, authMiddleware, cfg.AllowedOrigins)
 
 	log.Println("API listening on :" + cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {
